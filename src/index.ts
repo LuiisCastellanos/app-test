@@ -112,7 +112,8 @@ app.get(`/post/:id`, async (req, res) => {
   const { id }: { id?: string } = req.params
 
   const post = await prisma.post.findUnique({
-    where: { id: Number(id) },
+    include: { comments: true },
+    where: { id: Number(id) }
   })
   res.json(post)
 })
@@ -120,29 +121,49 @@ app.get(`/post/:id`, async (req, res) => {
 app.get('/feed', async (req, res) => {
   const { searchString, skip, take, orderBy } = req.query
 
-  const or: Prisma.PostWhereInput = searchString
+  const or: Prisma.CommentsWhereInput = searchString
     ? {
         OR: [
-          { title: { contains: searchString as string } },
-          { content: { contains: searchString as string } },
+          { content: { contains: searchString as string } }
         ],
       }
     : {}
 
-  const posts = await prisma.post.findMany({
+  const posts = await prisma.comments.findMany({
     where: {
-      published: true,
-      ...or,
+      ...or
     },
-    include: { author: true },
     take: Number(take) || undefined,
     skip: Number(skip) || undefined,
     orderBy: {
-      updatedAt: orderBy as Prisma.SortOrder,
+      createdAt: orderBy as Prisma.SortOrder
     },
   })
 
   res.json(posts)
+})
+
+//insert new comment
+app.post(`/comment`, async (req, res) => {
+  const { idPost, content } = req.body
+
+  const result = await prisma.comments.create({
+    data: {
+      content,
+      post: { connect: { id: idPost } },
+    },
+  })
+  res.json(result)
+})
+
+//search comments by postId
+app.get(`/comment/:id`, async (req, res) => {
+  const { id }: { id?: string } = req.params
+
+  const result = await prisma.comments.findMany({
+    where: { postId: Number(id) }
+  })
+  res.json(result)
 })
 
 const server = app.listen(3000, () =>
